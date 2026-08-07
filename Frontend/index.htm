@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Document Verification System">
+    <title>Document Verification</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1 class="title">Document Verification</h1>
+            <p class="subtitle">Upload a parent folder containing aspirant document folders.</p>
+        </div>
+
+        <!-- Upload Section -->
+        <section id="uploadSection" class="section">
+            <button id="uploadBtn" class="btn btn-upload" type="button">
+                Choose Parent Folder
+            </button>
+            <input 
+                type="file" 
+                id="folderInput" 
+                webkitdirectory 
+                directory 
+                multiple 
+                style="display: none;"
+            >
+        </section>
+
+        <!-- Folder Info -->
+        <section id="folderInfoSection" class="section hidden">
+            <div class="info-box">
+                <div class="success-badge">✓ Folder Uploaded Successfully</div>
+                <div class="info-item">
+                    <span class="info-label">Folder Name:</span>
+                    <span class="info-value" id="folderName">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Aspirant Folders:</span>
+                    <span class="info-value" id="aspirantCount">0</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Total Documents:</span>
+                    <span class="info-value" id="documentCount">0</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Start Button -->
+        <section id="startSection" class="section hidden">
+            <button id="startBtn" class="btn btn-primary" type="button" disabled>
+                Start Verification
+            </button>
+        </section>
+
+        <!-- Progress Section -->
+        <section id="progressSection" class="section hidden">
+            <div class="progress-box">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text">
+                    <span class="progress-percentage" id="progressPercentage">0%</span>
+                    <span class="progress-status" id="progressStatus">Verification in Progress...</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Error Section -->
+        <section id="errorSection" class="section hidden">
+            <div class="error-box">
+                <div class="error-title">❌ Verification Failed</div>
+                <div class="error-message" id="errorMessage">-</div>
+            </div>
+        </section>
+
+        <!-- Success Section -->
+        <section id="successSection" class="section hidden">
+            <div class="success-box">
+                <div class="success-title">✔ Verification Completed Successfully</div>
+            </div>
+        </section>
+
+        <!-- Download Section -->
+        <section id="downloadSection" class="section hidden">
+            <button id="downloadBtn" class="btn btn-success" type="button">
+                Download Verification Report
+            </button>
+        </section>
+
+        <!-- Verify Another Section -->
+        <section id="verifyAnotherSection" class="section hidden">
+            <button id="verifyAnotherBtn" class="btn btn-secondary" type="button">
+                Verify Another Batch
+            </button>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

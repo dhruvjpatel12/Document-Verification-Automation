@@ -1,0 +1,697 @@
+{
+  "name": "Document-Verification_Final",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "Documnet-Verification",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -48,
+        32
+      ],
+      "id": "c893de58-1ba8-4fa3-9bb8-80fb2a3097c9",
+      "name": "Webhook",
+      "webhookId": "0a7cafe3-a6e8-4675-b6b2-e2779e08079d"
+    },
+    {
+      "parameters": {
+        "resource": "document",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-flash-lite-latest",
+          "mode": "list",
+          "cachedResultName": "models/gemini-flash-lite-latest"
+        },
+        "text": "Extract the information from this document.\n\nReturn ONLY valid JSON.\n\n{\n  \"aspirant_id\": \"\",\n  \"aspirant_name\": \"\",\n  \"father_name\": \"\",\n  \"dob\": \"\",\n  \"gender\": \"\",\n  \"aadhaar_number\": \"\",\n  \"mobile\": \"\",\n  \"address\": \"\",\n  \"qualification\": \"\",\n  \"udid\": \"\",\n  \"disability_type\": \"\",\n  \"disability_percentage\": \"\",\n  \"caste\": \"\",\n  \"annual_family_income\": \"\"\n}\n\nIf a field is not present, return an empty string \"\".\nDo not explain anything.\nDo not use Markdown.\nReturn only the JSON object.",
+        "inputType": "binary",
+        "options": {
+          "maxOutputTokens": 300
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        1792,
+        176
+      ],
+      "id": "11100ae1-6afd-4c69-8784-5b071c9fa8a4",
+      "name": "Analyze document",
+      "retryOnFail": false,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "VWJ2cYhxeOBSwQJm",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1920,
+        384
+      ],
+      "id": "3a63d880-7a2f-4b15-a1d8-21b78a23b06b",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return {\n  json: {\n    aspirant_id: $json.aspirant_id,\n\n    ai_data: {\n      aspirant_name: $json.aspirant_name,\n      father_name: $json.father_name,\n      dob: $json.dob,\n      gender: $json.gender,\n      aadhaar_number: $json.aadhaar_number,\n      mobile: $json.mobile,\n      address: $json.address,\n      qualification: $json.qualification,\n      udid: $json.udid,\n      disability_type: $json.disability_type,\n      disability_percentage: $json.disability_percentage,\n      caste: $json.caste,\n      annual_family_income: $json.annual_family_income\n    },\n\n    db_data: {\n      person_id: $json.person_id,\n      aspirant_id: $json.aspirant_id,\n      aspirant_name: $json.aspirant_name,\n      father_name: $json.father_name,\n      father_mobile: $json.father_mobile,\n      email_id: $json.email_id,\n      mobile_number: $json.mobile_number,\n      date_of_birth: $json.date_of_birth,\n      gender: $json.gender,\n      aspirant_address: $json.aspirant_address,\n      qualification: $json.final_qualification,\n      aadharnumber: $json.aadharnumber,\n      type_of_disability: $json.type_of_disability,\n      nature_of_disability: $json.nature_of_disability,\n      caste: $json.caste,\n      minority_status: $json.minority_status,\n      annual_family_income: $json.annual_family_income,\n      state: $json.state,\n      city: $json.city,\n      pincode: $json.pincode\n    }\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2144,
+        384
+      ],
+      "id": "54245c93-b1d3-49c3-ac46-3b189310b117",
+      "name": "Prepare Verification data"
+    },
+    {
+      "parameters": {
+        "respondWith": "binary",
+        "responseDataSource": "set",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              },
+              {
+                "name": "Content-Disposition",
+                "value": "attachment; filename=\"Verification_Report.xlsx\""
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2512,
+        -288
+      ],
+      "id": "206df802-61d0-4c3a-936f-f9fdd45cd36b",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const webhook = $('Webhook').first();\n\nconst manifest = JSON.parse(webhook.json.body.manifest);\nconst binaries = webhook.binary || {};\n\nconst binaryKeys = Object.keys(binaries).sort((a, b) => {\n    return parseInt(a.replace(\"documents\", \"\")) - parseInt(b.replace(\"documents\", \"\"));\n});\n\nif (binaryKeys.length !== manifest.length) {\n    throw new Error(\n        `Manifest (${manifest.length}) and binaries (${binaryKeys.length}) do not match.`\n    );\n}\n\nconst output = [];\n\nfor (let i = 0; i < manifest.length; i++) {\n\n    const file = manifest[i];\n    const binary = binaries[binaryKeys[i]];\n\n    output.push({\n        json: {\n            filename: file.filename,\n            folderId: file.folderId,\n            relativePath: file.relativePath,\n            binaryKey: binaryKeys[i],\n        },\n        binary: {\n            data: binary,\n        },\n    });\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        176,
+        32
+      ],
+      "id": "6dbb6d0a-65fa-44dc-b051-bd89865bcc82",
+      "name": "Folder Name"
+    },
+    {
+      "parameters": {
+        "jsCode": "const webhook = $('Webhook').first();\n\nconst manifest = JSON.parse(webhook.json.body.manifest);\nconst binaries = webhook.binary || {};\n\nconst output = [];\n\nfor (const file of manifest) {\n\n    // Use ONLY the original binary key from the manifest\n    const binaryKey = file.binaryKey;\n\n    if (!binaryKey) {\n        throw new Error(\n            `binaryKey missing in manifest for ${file.filename}`\n        );\n    }\n\n    const binary = binaries[binaryKey];\n\n    if (!binary) {\n        throw new Error(\n            `Binary not found.\\n\\nExpected: ${binaryKey}\\n\\nAvailable:\\n${Object.keys(binaries).join('\\n')}`\n        );\n    }\n\n    output.push({\n        json: {\n            filename: file.filename,\n            folderId: file.folderId,\n            relativePath: file.relativePath,\n            binaryKey: binaryKey\n        },\n        binary: {\n            data: binary\n        }\n    });\n\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        32
+      ],
+      "id": "27506732-3f3e-4e9d-ad04-f81285ee3ed0",
+      "name": "File to folder"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst mismatch = [];\n\nfor (const item of items) {\n\n  const data = item.json;\n\n  if (!data.verification) continue;\n\n  for (const field in data.verification) {\n\n    const check = data.verification[field];\n\n    if (check.status !== \"Matched\") {\n\n      mismatch.push({\n\n        Aspirant_ID: data.aspirant_id,\n\n        Aspirant_Name:\n          data.verification.name?.document_value || \"\",\n\n        Field: field,\n\n        Status: check.status,\n\n        Document_Value:\n          check.document_value || \"\",\n\n        Database_Value:\n          check.database_value || \"\",\n\n        Reason:\n          check.reason || \"\",\n\n        Overall_Status:\n          data.overall_status,\n\n        Match_Percentage:\n          data.match_percentage\n\n      });\n\n    }\n  }\n}\n\nreturn mismatch.map(row => ({\n  json: row\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        -448
+      ],
+      "id": "df5b5759-3a69-4ba2-9ca7-53a49c84b711",
+      "name": "Generate Mismatch Data"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1616,
+        -304
+      ],
+      "id": "e3afb567-a60f-41af-b755-3a997113ebeb",
+      "name": "Merge2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const ExcelJS = require('exceljs');\n\nconst items = $input.all();\n\nconst workbook = new ExcelJS.Workbook();\n\nfor (const item of items) {\n\n    const sheetName = item.json.sheet;\n    const rows = item.json.data || [];\n\n    const worksheet = workbook.addWorksheet(sheetName);\n\n    if (rows.length === 0) {\n        worksheet.addRow([\"No Data\"]);\n        continue;\n    }\n\n    // Create columns\n   worksheet.columns = Object.keys(rows[0]).map(key => ({\n    header: key,\n    key: key,\n    width: Math.max(key.length + 2, 15)\n}));\n\n    const headerRow = worksheet.getRow(1);\n\nheaderRow.font = {\n    bold: true\n};\n\nheaderRow.alignment = {\n    horizontal: \"center\",\n    vertical: \"middle\"\n};\n\nheaderRow.height = 22;\n\n    // Add data\n    rows.forEach(row => worksheet.addRow(row));\n\n  worksheet.eachRow((row, rowNumber) => {\n\n    if (rowNumber === 1) return;\n\n    row.alignment = {\n        wrapText: true,\n        vertical: \"middle\"\n    };\n\n});\n\n}\n\nconst buffer = await workbook.xlsx.writeBuffer();\n\nreturn [\n{\n    json: {\n        fileName: \"Verification_Report.xlsx\"\n    },\n    binary: {\n        data: {\n            data:      \n            Buffer.from(buffer).toString(\"base64\"),\n            mimeType: \"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\",\n            fileName: \"Verification_Report.xlsx\"\n        }\n    }\n}\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2064,
+        -288
+      ],
+      "id": "dc114869-ae48-47fb-9e88-cebfd5dc612f",
+      "name": "Combine Excel"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": {
+          "__rl": true,
+          "value": "aspirant_profiles",
+          "mode": "list",
+          "cachedResultName": "aspirant_profiles"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "aspirant_id",
+              "value": "={{$json.aspirant_id}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1632,
+        400
+      ],
+      "id": "4fc83491-f7b7-45d9-8ff5-83a06847b308",
+      "name": "DataBase",
+      "alwaysOutputData": true,
+      "credentials": {
+        "mySql": {
+          "id": "J5vGNAqTlIdzIVyA",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      success: true,\n      message: \"Verification report generated\"\n    },\n    binary: $input.first().binary\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2288,
+        -288
+      ],
+      "id": "220f509c-dd88-4c1f-884a-8c67d0ef011c",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "const groups = {};\n\nfor (const item of $input.all()) {\n\n  const doc = item.json;\n\n  if (!doc.relativePath) continue;\n\n\n  const pathParts = doc.relativePath.split(\"/\");\n\n\n  // Aspirant folder is always the folder before the filename\n  const aspirantId = pathParts[pathParts.length - 2];\n\n\n  if (!aspirantId) continue;\n\n\n  if (!groups[aspirantId]) {\n\n    groups[aspirantId] = {\n      aspirantId,\n      totalDocuments: 0,\n      documents: [],\n      binary: {}\n    };\n\n  }\n\n\n  groups[aspirantId].totalDocuments++;\n\n\n  groups[aspirantId].documents.push({\n    filename: doc.filename,\n    binaryKey: doc.binaryKey,\n    relativePath: doc.relativePath\n  });\n\n\n  // Preserve all PDF binaries\n  for (const [key, value] of Object.entries(item.binary || {})) {\n\n    groups[aspirantId].binary[doc.binaryKey] = value;\n\n  }\n\n}\n\n\nreturn Object.values(groups).map(group => ({\n\n  json: {\n    aspirantId: group.aspirantId,\n    totalDocuments: group.totalDocuments,\n    documents: group.documents\n  },\n\n  binary: group.binary\n\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        32
+      ],
+      "id": "fb78b5f3-255b-48cd-8b4e-5b5d66f798cd",
+      "name": "Extract Aspirant ID"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-pdf.pdfToolkit",
+      "typeVersion": 1,
+      "position": [
+        1536,
+        176
+      ],
+      "id": "72ce1c5d-d984-4eda-815d-1770f3395b6f",
+      "name": "Merge multiple PDF files"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map(item => ({\n  json: {\n    aspirantId: item.json.aspirantId,\n    files: Object.values(item.binary || {}).map(file => file.fileName)\n  },\n  binary: item.binary\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        32
+      ],
+      "id": "f338dd88-dac0-4aeb-b541-18c9d6cfa88c",
+      "name": "Aspirant Groups"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1072,
+        32
+      ],
+      "id": "8b108a2d-a32e-444b-b2b2-8e6a5dd734bc",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const text = $json.content.parts[0].text;\n\nconst data = JSON.parse(text);\n\nreturn {\n  json: data\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2016,
+        176
+      ],
+      "id": "a0710962-db77-4a87-a16a-3791f54b8e0c",
+      "name": "Parser JSON"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const text = $json.content.parts[0].text;\n\nconst data = JSON.parse(text);\n\nreturn {\n  json: data\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2448,
+        400
+      ],
+      "id": "dd8eb0b3-1097-4292-a051-fd6d8693d15f",
+      "name": "Parser"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst report = [];\n\nfor (const item of items) {\n\n  const data = item.json;\n\n  report.push({\n    Aspirant_ID: data.aspirant_id,\n\n    Name: data.verification?.name?.document_value || \"\",\n    Name_Status: data.verification?.name?.status || \"\",\n\n    Aadhaar_Status: data.verification?.aadhaar?.status || \"\",\n\n    DOB_Status: data.verification?.dob?.status || \"\",\n\n    Phone_Status: data.verification?.phone?.status || \"\",\n\n    Disability_Status: data.verification?.disability?.status || \"\",\n\n    Overall_Status: data.overall_status,\n\n    Match_Percentage: data.match_percentage,\n\n    Remarks: data.remarks?.join(\", \") || \"\"\n  });\n\n}\n\nreturn report.map(row => ({\n  json: row\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1296,
+        -256
+      ],
+      "id": "ac51bc71-590f-4abd-982d-92dbc5225e0b",
+      "name": "Generate Matched Data"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-flash-lite-latest",
+          "mode": "list",
+          "cachedResultName": "models/gemini-flash-lite-latest"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are an expert document verification AI.\n\nYou will receive ONE JSON object as input with the following structure:\n\n{\n  \"aspirant_id\": ...,\n  \"ai_data\": {...},\n  \"db_data\": {...}\n}\n\nYour task is to compare ONLY the values present in ai_data and db_data.\n\nDo NOT use external knowledge.\nDo NOT generate sample data.\nDo NOT invent values.\nDo NOT invent aspirant IDs.\nUse ONLY the values provided in the input JSON.\n\nCompare the following fields:\n\n1. Name\n2. Father's Name\n3. Aadhaar Number\n4. Date of Birth\n5. Phone Number\n6. Qualification\n7. Disability Type\n8. Gender\n\nComparison Rules\n\n• Ignore leading/trailing spaces.\n• Ignore upper/lower case differences.\n• Aadhaar numbers should match after removing spaces and hyphens.\n• Dates may be in different formats (DD/MM/YYYY, YYYY-MM-DD, DD-MM-YYYY). Compare the actual date.\n• Phone numbers should ignore spaces, +91, and formatting characters.\n• Qualification should be compared semantically.\n  Examples:\n  - B.Tech = Bachelor of Technology\n  - B.E = Bachelor of Engineering\n• Disability Type should be compared semantically.\n  Examples:\n  - OH = Locomotor Disability\n  - Hearing Impairment = HI Severe (Totally deaf)\n• Gender values should be treated as equal.\n  Examples:\n  - Male = M\n  - Female = F\n\nFor every field return ONLY one status:\n\n- Matched\n- Review\n- Failed\n\nStatus Rules\n\nMatched\n- Exact match\n- Formatting difference only\n- Semantic equivalent\n\nReview\n- Minor variation\n- Possible typo\n- Needs manual verification\n\nFailed\n- Clearly different values\n\nOverall Status Rules\n\n- If every field is Matched → Matched\n- If one or more fields are Review but none Failed → Review\n- If Name, Father's Name, Aadhaar or DOB is Failed → Failed\n\nMatch Percentage\n\nReturn a number between 0 and 100.\n\nRemarks\n\nReturn only meaningful mismatches.\nIf everything matches return:\n\n\"All fields verified successfully.\"\n\nReturn ONLY valid JSON.\n\nDo NOT use Markdown.\n\nDo NOT wrap the JSON in ```.\n\nReturn EXACTLY this structure:\n\n{\n  \"aspirant_id\": \"\",\n  \"overall_status\": \"\",\n  \"match_percentage\": 0,\n  \"verification\": {\n    \"name\": {\n      \"status\": \"\",\n      \"document_value\": \"\",\n      \"database_value\": \"\",\n      \"reason\": \"\"\n    },\n    \"father_name\": {\n      \"status\": \"\",\n      \"document_value\": \"\",\n      \"database_value\": \"\",\n      \"reason\": \"\"\n    },\n    \"aadhaar\": {\n      \"status\": \"\",\n      \"document_value\": \"\",\n      \"database_value\": \"\",\n      \"reason\": \"\"\n    },\n    \"dob\": {\n      \"status\": \"\",\n      \"document_value\": \"\",\n      \"database_value\": \"\",\n      \"reason\": \"\"\n    },\n    \"phone\": {\n      \"status\": \"\",\n      \"document_value\": \"\",\n      \"database_value\": \"\",\n      \"reason\": \"\"\n    },\n    \"qualification\": {\n      \"status\": \"\",\n      \"document_value\": \"\",\n      \"database_value\": \"\",\n      \"reason\": \"\"\n    },\n    \"disability\": {\n      \"status\": \"\",\n      \"document_value\": \"\",\n      \"database_value\": \"\",\n      \"reason\": \"\"\n    },\n    \"gender\": {\n      \"status\": \"\",\n      \"document_value\": \"\",\n      \"database_value\": \"\",\n      \"reason\": \"\"\n    }\n  },\n  \"remarks\": []\n}\n\nINPUT JSON\n\n{{ JSON.stringify($json, null, 2) }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "maxOutputTokens": 8192,
+          "temperature": 0
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        2256,
+        192
+      ],
+      "id": "2e5af5ca-1411-4a74-9c21-ba86d37d6cac",
+      "name": "Verification",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "VWJ2cYhxeOBSwQJm",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json;\n\nreturn [\n  {\n    json: {\n      ...data,\n      aspirant_id: $('Loop Over Items').item.json.aspirantId\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1264,
+        400
+      ],
+      "id": "78f290f4-02a1-43f4-9982-3b58bbb86168",
+      "name": "Code in JavaScript4"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst matched = [];\nconst mismatch = [];\nconst comparison = [];\n\nfor (const item of items) {\n\n  const data = item.json;\n\n  // Matched Data\n  if (data.Name_Status) {\n    matched.push(data);\n  }\n\n  // Mismatch Data\n  else if (data.Field) {\n    mismatch.push(data);\n  }\n\n  // Comparison Data\n  else if (\n    data.Document_Name !== undefined &&\n    data.Database_Name !== undefined\n  ) {\n    comparison.push(data);\n  }\n\n}\n\nreturn [\n  {\n    json: {\n      sheet: \"Matched_Data\",\n      data: matched\n    }\n  },\n  {\n    json: {\n      sheet: \"Mismatch_Data\",\n      data: mismatch\n    }\n  },\n  {\n    json: {\n      sheet: \"Comparison_Data\",\n      data: comparison\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1840,
+        -288
+      ],
+      "id": "3b90b32f-a68f-4fef-b35a-ba715d0913f5",
+      "name": "Data Split"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first();\n\nconst aspirantId = input.json.aspirantId;\nconst binaries = input.binary || {};\n\nconst output = [];\n\nconst keys = Object.keys(binaries).sort();\n\nfor (let i = 0; i < keys.length; i++) {\n  const key = keys[i];\n  const file = binaries[key];\n\n  output.push({\n    json: {\n      aspirantId,\n      order: i,\n      binaryKey: key,\n      fileName: file.fileName,\n    },\n    binary: {\n      data: file,\n    },\n  });\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1312,
+        176
+      ],
+      "id": "b84a3ba5-2293-408f-84fd-0832ed52afb2",
+      "name": "Binary Parser"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst comparison = [];\n\nfor (const item of items) {\n\n  const data = item.json;\n\n  if (!data.verification) continue;\n\n  comparison.push({\n\n    Aspirant_ID: data.aspirant_id,\n\n    Document_Name:\n      data.verification.name?.document_value || \"\",\n\n    Database_Name:\n      data.verification.name?.database_value || \"\",\n\n    Document_Father_Name:\n      data.verification.father_name?.document_value || \"\",\n\n    Database_Father_Name:\n      data.verification.father_name?.database_value || \"\",\n\n    Document_Aadhaar:\n      data.verification.aadhaar?.document_value || \"\",\n\n    Database_Aadhaar:\n      data.verification.aadhaar?.database_value || \"\",\n\n    Document_DOB:\n      data.verification.dob?.document_value || \"\",\n\n    Database_DOB:\n      data.verification.dob?.database_value || \"\",\n\n    Document_Phone:\n      data.verification.phone?.document_value || \"\",\n\n    Database_Phone:\n      data.verification.phone?.database_value || \"\",\n\n    Document_Qualification:\n      data.verification.qualification?.document_value || \"\",\n\n    Database_Qualification:\n      data.verification.qualification?.database_value || \"\",\n\n    Document_Disability_Type:\n      data.verification.disability?.document_value || \"\",\n\n    Database_Disability_Type:\n      data.verification.disability?.database_value || \"\",\n\n    Document_Gender:\n      data.verification.gender?.document_value || \"\",\n\n    Database_Gender:\n      data.verification.gender?.database_value || \"\",\n\n    Overall_Status: data.overall_status,\n\n    Match_Percentage: data.match_percentage,\n\n    Remarks: data.remarks?.join(\", \") || \"\"\n\n  });\n\n}\n\nreturn comparison.map(row => ({\n  json: row\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        -64
+      ],
+      "id": "c464b388-75d0-4d80-8d0c-6daf6e31d60b",
+      "name": "Generate Comparison Data"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Folder Name",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze document": {
+      "main": [
+        [
+          {
+            "node": "Parser JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Prepare Verification data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Verification data": {
+      "main": [
+        [
+          {
+            "node": "Verification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Folder Name": {
+      "main": [
+        [
+          {
+            "node": "File to folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "File to folder": {
+      "main": [
+        [
+          {
+            "node": "Extract Aspirant ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Mismatch Data": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "Data Split",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Excel": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DataBase": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Aspirant ID": {
+      "main": [
+        [
+          {
+            "node": "Aspirant Groups",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aspirant Groups": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge multiple PDF files": {
+      "main": [
+        [
+          {
+            "node": "Analyze document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Generate Mismatch Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Generate Matched Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Generate Comparison Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Binary Parser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parser JSON": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code in JavaScript4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parser": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Matched Data": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Verification": {
+      "main": [
+        [
+          {
+            "node": "Parser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript4": {
+      "main": [
+        [
+          {
+            "node": "DataBase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Split": {
+      "main": [
+        [
+          {
+            "node": "Combine Excel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Binary Parser": {
+      "main": [
+        [
+          {
+            "node": "Merge multiple PDF files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Comparison Data": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "00640812-1584-409a-a34d-a7d85a80f951",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1c4e1f54e359d7ea04bf2c748b18d0b7252bd2a36d1a32afcf7dbc96bf5d4f18"
+  },
+  "nodeGroups": [],
+  "id": "VNsbXJzOssXW6KjJ",
+  "tags": []
+}
